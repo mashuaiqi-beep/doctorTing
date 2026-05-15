@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pydantic
+sqlalchemy
+psycopg[binary]
+redis
+openai
+langgraph
+langchain
+langsmith
+pgvector
+chromadb
+chromadb
