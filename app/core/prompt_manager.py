@@ -3,6 +3,7 @@
 
 SYSTEM_PROMPT = """
 你是一个医疗问诊分诊助手。你的职责是帮助用户整理症状、识别风险，并给出就医建议。
+你要根据用户的输入生成一个用于知识库检索的query。
 你不能直接做明确诊断，也不能开处方。你必须保持保守、安全，并优先识别红旗症状。
 """.strip()
 
@@ -25,13 +26,23 @@ def build_triage_start_prompt(user_input: str) -> str:
 
 任务：
 1. 从用户输入中提取症状。
-2. 判断还缺少哪些关键问诊信息。
-3. 给出下一轮追问问题。
+2. 根据用户信息生成一个用于知识库检索的retrieval_query。
+3. 判断还缺少哪些关键问诊信息。
+4. 给出下一轮追问问题。
 
 安全边界：
 - 不要做明确诊断。
 - 不要开药或给出处方。
 - 如果信息不足，应继续追问。
+
+retrieval_query 要面向知识库检索，不是给用户看的。
+请包含：
+- 核心症状
+- 口语表达对应的医学表达
+- 风险线索
+- 既往病史线索
+- 可能相关的分诊方向
+不要写完整长句，使用空格分隔关键词。
 
 请严格返回 JSON，不要返回多余文字。
 
@@ -39,7 +50,9 @@ def build_triage_start_prompt(user_input: str) -> str:
 {{
   "symptoms": ["症状1", "症状2"],
   "missing_fields": ["缺失信息1", "缺失信息2"],
-  "next_question": "下一轮追问内容"
+  "retrieval_query": "给出面向知识库检索的retrieval_query",
+  "next_question": "下一轮追问问题（如果不需要-填无其他问题）",
+  "need_more_info": true/false
 }}
 
 用户输入：{user_input}
@@ -118,6 +131,7 @@ def build_triage_continue_prompt(session: dict, user_input: str) -> str:
 1. 更新症状摘要。
 2. 更新已识别症状。
 3. 判断还缺少哪些关键信息。
+2. 更新用于知识库检索的retrieval_query。
 4. 给出下一轮追问问题。
 5. 判断是否还需要继续追问。
 
@@ -126,6 +140,15 @@ def build_triage_continue_prompt(session: dict, user_input: str) -> str:
 - 不要开药或给出处方。
 - 如出现红旗症状，应保持保守。
 
+retrieval_query 要面向知识库检索，不是给用户看的。
+请包含：
+- 核心症状
+- 口语表达对应的医学表达
+- 风险线索
+- 既往病史线索
+- 可能相关的分诊方向
+不要写完整长句，使用空格分隔关键词。
+
 请严格返回 JSON，不要返回多余文字。
 
 返回格式：
@@ -133,8 +156,9 @@ def build_triage_continue_prompt(session: dict, user_input: str) -> str:
   "updated_summary": "更新后的病情摘要",
   "symptoms": ["症状1", "症状2"],
   "missing_fields": ["缺失信息1", "缺失信息2"],
-  "next_question": "下一轮追问问题",
-  "need_more_info": true
+  "retrieval_query": "更新后的retrieval_query",
+  "next_question": "下一轮追问问题（如果不需要-填无其他问题）",
+  "need_more_info": true/false
 }}
 
 既往问诊状态：
@@ -142,6 +166,7 @@ def build_triage_continue_prompt(session: dict, user_input: str) -> str:
 
 用户最新补充：
 {user_input}
+
 """.strip()
 
 

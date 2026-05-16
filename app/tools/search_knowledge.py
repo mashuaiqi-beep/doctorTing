@@ -28,78 +28,6 @@ from pathlib import Path
 KNOWLEDGE_DIR = Path(__file__).resolve().parents[2] / "data" / "knowledge"
 
 
-# 每个 Markdown 文件对应一组关键词。
-# query 里只要出现这些词，就认为这个文档可能相关。
-#
-# 类比 Java：
-# 这相当于 Map<String, List<String>>。
-KEYWORD_ALIASES = {
-    "fever.md": ["发热", "发烧", "高热", "体温", "寒战"],
-    "cough.md": ["咳嗽", "咳痰", "有痰", "咯血", "呼吸困难", "气促"],
-    "chest_pain.md": ["胸痛", "胸闷", "胸口", "心悸", "出汗", "呼吸困难"],
-}
-
-
-def search_medical_knowledge(query: str, top_k: int = 3) -> dict:
-    """根据 query 从本地 Markdown 知识库返回相关片段。
-
-    参数：
-    - query: 检索词，比如 "发热 咳嗽"、"胸痛 呼吸困难"
-    - top_k: 最多返回几条结果
-
-    返回：
-    {
-        "query": 原始查询,
-        "results": 相关知识片段列表,
-        "references": 来源文件列表
-    }
-    """
-
-    documents = _load_knowledge_documents()
-    results = []
-
-    # 遍历所有知识文档，给每篇文档打分。
-    for document in documents:
-        score = _score_document(query=query, document=document)
-
-        # score <= 0 表示这个文档和 query 没有明显关系。
-        if score <= 0:
-            continue
-
-        result_item = {
-            "keyword": document["title"],
-            "content": _select_snippet(query=query, content=document["content"]),
-            "source": document["source"],
-            "score": score,
-        }
-        results.append(result_item)
-
-    # 按 score 从高到低排序。
-    # Python 的 sort 类似 Java 里 Collections.sort(list, comparator)。
-    # lambda item: item["score"] 可以理解为“按每个元素的 score 字段排序”。
-    results.sort(key=lambda item: item["score"], reverse=True)
-
-    if not results:
-        results = [
-            {
-                "keyword": "general",
-                "content": "暂未检索到明确匹配的知识片段，建议结合症状变化线下就诊。",
-                "source": "general_triage.md",
-                "score": 0,
-            }
-        ]
-
-    # Python 切片 results[:top_k] 表示取前 top_k 个元素。
-    # 类比 Java：list.subList(0, Math.min(topK, list.size()))。
-    selected_results = results[:top_k]
-
-    return {
-        "query": query,
-        "results": selected_results,
-        "references": _extract_references(selected_results),
-    }
-
-
 def _load_knowledge_documents() -> list[dict]:
     """读取 data/knowledge 目录下所有 Markdown 文档。"""
 
@@ -231,3 +159,42 @@ def _extract_references(results: list[dict]) -> list[str]:
             references.append(source)
 
     return references
+
+def load_knowledge_by_references(references: list[str]) -> list[dict]:
+    """根据 references 读取完整 Markdown 文件内容。
+
+    参数：
+    - references: 例如 ["偏头痛.md", "cough.md"]
+
+    返回：
+    [
+        {
+            "source": "偏头痛.md",
+            "content": "整篇 markdown 内容..."
+        }
+    ]
+    """
+
+    documents = []
+
+    for source in references:
+        path = KNOWLEDGE_DIR / source
+
+        # 防止传入不存在的文件名。
+        if not path.exists():
+            continue
+
+        content = path.read_text(encoding="utf-8").strip()
+
+        if not content:
+            continue
+
+        documents.append(
+            {
+                "source": source,
+                "content": content,
+            }
+        )
+
+    return documents
+

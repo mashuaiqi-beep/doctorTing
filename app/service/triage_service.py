@@ -1,8 +1,7 @@
 """医疗问诊分诊业务逻辑。"""
-
+from app.service import redis_session_store
 from app.service.llm_service import LLMService
 from app.service.risk_control_service import RiskControlService
-from app.service.session_store import SessionStore
 from app.service.tool_service import ToolService
 
 
@@ -12,7 +11,7 @@ class TriageService:
     def __init__(self):
         self.llm_service = LLMService()
         self.risk_control_service = RiskControlService()
-        self.session_store = SessionStore()
+        self.session_store = redis_session_store.RedisSessionStore()
         self.tool_service = ToolService()
 
     def start_triage(self, user_input: str) -> dict:
@@ -40,13 +39,20 @@ class TriageService:
             ),
             "risk_level": risk_result["risk_level"],
             "red_flags": risk_result["red_flags"],
+            "retrieval_query": llm_result.get("retrieval_query", "、".join(symptoms)),
         }
-
-        session_id = self.session_store.create_session(user_input, result)
-
+        session_id = self.session_store.upsert_session(
+            session_id=None,
+            user_input=user_input,
+            data=result,
+        )
         return {
             "session_id": session_id,
-            **result,
+            "symptoms": result["symptoms"],
+            "missing_fields": result["missing_fields"],
+            "next_question": result["next_question"],
+            "risk_level": result["risk_level"],
+            "red_flags": result["red_flags"],
         }
 
     def continue_triage(self, session_id: str, user_input: str) -> dict:
@@ -55,8 +61,6 @@ class TriageService:
         session = self.session_store.get_session(session_id)
         if not session:
             raise ValueError("session_id 不存在")
-
-        self.session_store.append_user_message(session_id, user_input)
 
         llm_result = self.llm_service.continue_triage_info(
             session=session,
@@ -89,9 +93,17 @@ class TriageService:
             "risk_level": risk_level,
             "red_flags": red_flags,
             "summary": llm_result.get("updated_summary", ""),
+            "retrieval_query": llm_result.get(
+                "retrieval_query",
+                session.get("retrieval_query", "、".join(symptoms)),
+            ),
         }
 
-        self.session_store.update_session(session_id, update_data)
+        session_id = self.session_store.upsert_session(
+            session_id=session_id,
+            user_input=user_input,
+            data=update_data,
+        )
 
         return {
             "session_id": session_id,
@@ -109,24 +121,43 @@ class TriageService:
 
         symptoms = session.get("symptoms", [])
         risk_level = session.get("risk_level", "low")
-        query = "、".join(symptoms) if symptoms else session.get("summary", "")
 
+        query = (
+            session.get("retrieval_query")
+            or "、".join(symptoms)
+            or session.get("summary", "")
+        )
         knowledge_result = self.tool_service.search_knowledge(
             query=query,
             top_k=3,
         )
+        references = knowledge_result.get("references", [])
+        full_knowledge = self.tool_service.load_knowledge_by_references(
+            references=references,
+        )
+        # 拿到检索到的chumk对应的文件内容
 
         appointment_result = self.tool_service.book_appointment(
             symptoms=symptoms,
             risk_level=risk_level,
         )
+
         session_for_evaluation = {
             **session,
-            "knowledge": knowledge_result.get("results", []),
+            "knowledge": full_knowledge,
+            "knowledge_chunks": knowledge_result.get("results", []),
+            "references": references,
             "appointment": appointment_result,
         }
 
         llm_result = self.llm_service.evaluate_triage(session_for_evaluation)
+        self.session_store.update_session(session_id,
+            {
+                "references": references,
+                "department": appointment_result.get("department", ""),
+                "final_advice": llm_result.get("advice", ""),
+            },
+        )
 
         return {
             "summary": llm_result.get("summary", session.get("summary", "")),

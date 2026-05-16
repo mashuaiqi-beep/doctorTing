@@ -5,6 +5,7 @@ from openai import OpenAI
 from app.core.config import settings
 from app.service.vector_knowledge_service import VectorKnowledgeService
 from app.tools.book_appointment import book_appointment
+from app.tools.search_knowledge import load_knowledge_by_references
 
 
 logger = logging.getLogger(__name__)
@@ -136,3 +137,8 @@ class ToolService:
         """推荐科室并返回模拟挂号结果。"""
 
         return book_appointment(symptoms=symptoms, risk_level=risk_level)
+
+    def load_knowledge_by_references(self, references: list[str]) -> list[dict]:
+        """根据 references 读取完整知识文档。"""
+
+        return load_knowledge_by_references(references)
