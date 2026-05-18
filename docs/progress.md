@@ -5,10 +5,10 @@
 当前项目处于：
 
 ```text
-MVP 稳定阶段：三条核心接口已经具备真实逻辑，正在补文档、测试和稳定性。
+Agent MVP 增强阶段：核心接口稳定，ToolService 和 ChromaDB RAG 已接入，下一步重点是配置安全、Redis session、LangGraph 编排和评估体系。
 ```
 
-核心目标是让项目从“能跑”变成“可信、可讲、可演示”。
+项目已经从“能跑的 FastAPI + LLM Demo”推进到“具备工具层和知识检索能力的医疗分诊 Agent 雏形”。
 
 ## 已完成
 
@@ -24,6 +24,10 @@ MVP 稳定阶段：三条核心接口已经具备真实逻辑，正在补文档�
 - `app/model`
 - `app/tools`
 - `app/utils`
+- `app/scripts`
+- `data/knowledge`
+- `tests`
+- `docs`
 
 ### 2. FastAPI 入口
 
@@ -33,6 +37,7 @@ MVP 稳定阶段：三条核心接口已经具备真实逻辑，正在补文档�
 - 路由注册
 - `/`
 - `/health`
+- Swagger 文档 `/docs`
 
 项目可以作为 Web 服务启动。
 
@@ -47,20 +52,23 @@ MVP 稳定阶段：三条核心接口已经具备真实逻辑，正在补文档�
 当前主链路包括：
 
 1. API 接收请求。
-2. Service 处理业务。
-3. LLM Service 调用大模型。
-4. Risk Control Service 做规则兜底。
-5. SessionStore 保存会话。
-6. API 返回结构化结果。
+2. Pydantic 校验请求体和响应体。
+3. `TriageService` 编排业务。
+4. `LLMService` 调用大模型。
+5. `RiskControlService` 做规则兜底。
+6. `ToolService` 调用红旗检查、知识检索和科室推荐工具。
+7. `SessionStore` 保存会话。
+8. API 返回结构化结果。
 
 ### 4. 大模型调用
 
 已经完成：
 
 - 使用 OpenAI SDK 兼容接口。
-- 通过环境变量配置 `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL`。
+- 支持配置 `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL`。
 - 使用 `temperature=0` 提高结构化输出稳定性。
 - 使用 JSON 解析兜底函数处理模型输出。
+- LLM 调用失败时返回稳定 fallback。
 
 ### 5. 风险判断
 
@@ -68,9 +76,10 @@ MVP 稳定阶段：三条核心接口已经具备真实逻辑，正在补文档�
 
 - `risk_rules.py`
 - `risk_control_service.py`
-- 规则关键词匹配
-- LLM 红旗症状语义判断
+- 明确红旗关键词匹配
+- LLM / Function Calling 方式的红旗症状语义判断
 - 规则和 LLM 风险结果合并
+- 高风险 session 后续不降级
 
 合并策略：
 
@@ -90,18 +99,72 @@ MVP 稳定阶段：三条核心接口已经具备真实逻辑，正在补文档�
 - 风险等级
 - 红旗症状
 - 摘要
+- 创建时间
+- 更新时间
+
+同时已经有 `RedisSessionStore` 雏形，后续可通过工厂模式切换。
+
+### 7. ToolService 工具层
+
+已经完成工具层入口：
+
+- `extract_symptoms`
+- `check_red_flags`
+- `search_knowledge`
+- `book_appointment`
+
+当前状态：
+
+- 红旗检查已使用 OpenAI-compatible function calling schema。
+- 知识检索已封装为工具服务。
+- 科室推荐已封装为模拟挂号工具。
+- 主流程当前仍以后端编排为主，后续可升级为 LangGraph/LLM 自主选择工具。
+
+### 8. RAG 知识检索
+
+已经完成：
+
+- 本地 Markdown 医疗知识库。
+- 轻量关键词检索工具。
+- ChromaDB 向量知识库服务。
+- `build_knowledge_index.py` 重建索引脚本。
+- Markdown 段落切 chunk。
+- metadata 保存 `source`、`title`、`chunk_index`。
+- `/triage/evaluate` 阶段调用知识检索。
+- 最终响应返回 `references`。
+
+当前知识库示例：
+
+- `fever.md`
+- `cough.md`
+- `chest_pain.md`
+
+### 9. 科室推荐
+
+已经完成模拟挂号工具：
+
+- 高风险直接推荐急诊科。
+- 低风险根据症状规则推荐呼吸内科、发热门诊、消化内科、神经内科等。
+- 无法匹配时回退到全科医学科。
+
+### 10. 自动化测试
+
+当前已经覆盖：
+
+- 三条核心接口完整流程。
+- 高风险输入识别。
+- 无效 `session_id` 返回 404。
+- LLM 红旗判断失败时规则仍然生效。
+- 高风险 session 后续不降级。
+- 模拟挂号工具。
+- 本地知识检索工具。
+- ChromaDB 索引构建和检索。
 
 ## 当前存在的问题
 
-### 1. 测试仍需持续补充
+### 1. 配置安全需要清理
 
-当前目标是先覆盖三条核心接口和服务层关键逻辑，后续还需要继续补：
-
-- 模型异常
-- JSON 解析异常
-- 高风险合并
-- 无效 `session_id`
-- 信息不足输入
+当前 `app/core/config.py` 里还有默认配置值，后续应改成完全从环境变量读取，并增加 `.env.example`。
 
 ### 2. 内存 SessionStore 不适合生产
 
@@ -109,19 +172,28 @@ MVP 稳定阶段：三条核心接口已经具备真实逻辑，正在补文档�
 
 - 服务重启后会话丢失。
 - 多进程或多实例无法共享会话。
-- 无法长期追踪问诊记录。
+- 无自动过期机制。
 
-后续可以迁移到 Redis 或数据库。
+后续应通过配置切换到 Redis。
 
-### 3. 知识库内容较少
+### 3. RAG 还缺少评估体系
 
-`data/knowledge` 当前只有少量示例文档，适合作为 RAG 起步素材，但还不足以支撑完整知识增强。
+虽然 ChromaDB 检索已经接入，但还缺少系统评估：
 
-### 4. LangGraph 仍是预留
+- recall@k
+- references 命中率
+- 检索结果是否真正被最终建议使用
+- 不同 query 对知识库的覆盖情况
+
+### 4. 知识库内容较少
+
+`data/knowledge` 当前适合作为 RAG 起步素材，但还不足以支撑完整医疗问诊展示。
+
+### 5. LangGraph 仍是预留
 
 `agent/triage_graph.py` 当前是结构示例，还没有接入主服务链路。
 
-### 5. 数据库模型仍是预留
+### 6. 数据库模型仍是预留
 
 `model/` 目录当前只是后续扩展入口，尚未正式接入业务链路。
 
@@ -129,36 +201,62 @@ MVP 稳定阶段：三条核心接口已经具备真实逻辑，正在补文档�
 
 ### 第一优先级
 
-- 修复文档编码。
+- 清理默认 API key 和敏感配置。
+- 增加 `.env.example`。
 - 同步 README 与实际代码状态。
-- 补充接口自动化测试。
-- 稳定当前三条接口。
+- 稳定当前测试。
+- 增加 RAG 返回结果的更多断言。
 
 ### 第二优先级
 
+- 增加 session store 工厂。
+- 支持 `SESSION_STORE_TYPE=memory|redis`。
+- 完善 Redis 相关测试。
 - 扩充红旗症状规则。
 - 增强 Prompt 和兜底文案。
-- 补充更多异常测试。
-- 优化会话摘要质量。
 
 ### 第三优先级
 
-- 整理本地知识库。
-- 实现本地知识检索 MVP。
-- 在 `/triage/evaluate` 中返回 `references`。
+- 扩充 `data/knowledge`。
+- 统一 Markdown 知识文档结构。
+- 建立 RAG 评估集。
+- 统计 recall@k、references 命中率和 JSON valid rate。
 
 ### 第四优先级
 
 - 接入 `LangGraph`。
-- 接入 `RAG`。
-- 接入 `LangSmith`。
+- 将 `start/continue/evaluate` 拆成节点。
+- 实现高风险急诊分支。
+- 接入 `LangSmith` 做调用链路观测。
+
+### 第五优先级
+
+- 增加数据库长期问诊记录。
+- 保存最终 evaluate 结果。
+- 支持根据 `session_id` 查询历史问诊。
 
 ## 当前阶段总结
 
-项目已经从规划阶段进入可运行 Demo 阶段。现在最重要的工作是提高可维护性和可演示性：
+项目已经具备一个 Agent 项目的核心雏形：
 
-- 文档可读。
-- 接口稳定。
-- 测试能跑。
-- 边界清楚。
-- 主链路能解释。
+```text
+FastAPI 接口
+  + 多轮 session
+  + LLM 结构化输出
+  + 红旗风险控制
+  + ToolService
+  + ChromaDB RAG
+  + 科室推荐
+  + pytest 测试
+```
+
+下一阶段最值得做的是：
+
+```text
+配置安全
+  -> Redis session
+  -> RAG 评估
+  -> LangGraph 编排
+```
+
+这样项目会从“功能能跑”继续升级为“更接近真实 Agent 工程实践”的面试项目。

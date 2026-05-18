@@ -3,7 +3,7 @@ from app.service import redis_session_store
 from app.service.llm_service import LLMService
 from app.service.risk_control_service import RiskControlService
 from app.service.tool_service import ToolService
-
+from app.agent.triage_graph import build_start_triage_graph
 
 class TriageService:
     """编排 LLM 抽取、风险控制和会话状态。"""
@@ -13,47 +13,23 @@ class TriageService:
         self.risk_control_service = RiskControlService()
         self.session_store = redis_session_store.RedisSessionStore()
         self.tool_service = ToolService()
+        self.start_graph = build_start_triage_graph(
+            llm_service=self.llm_service,
+            risk_control_service=self.risk_control_service,
+            tool_service=self.tool_service,
+            session_store=self.session_store,
+        )
 
     def start_triage(self, user_input: str) -> dict:
         """根据用户首轮症状描述开始问诊。"""
 
-        llm_result = self.llm_service.extract_triage_info(user_input)
-        symptoms = llm_result.get("symptoms", [])
+        final_state = self.start_graph.invoke(
+            {
+                "user_input": user_input,
+            }
+        )
 
-        rule_risk = self.risk_control_service.check_risk(
-            text=user_input,
-            symptoms=symptoms,
-        )
-        llm_risk = self.tool_service.check_red_flags(
-            user_input=user_input,
-            symptoms=symptoms,
-        )
-        risk_result = self._merge_risk(rule_risk, llm_risk)
-
-        result = {
-            "symptoms": symptoms,
-            "missing_fields": llm_result.get("missing_fields", []),
-            "next_question": llm_result.get(
-                "next_question",
-                "请补充更多症状信息，例如持续时间、严重程度和伴随症状。",
-            ),
-            "risk_level": risk_result["risk_level"],
-            "red_flags": risk_result["red_flags"],
-            "retrieval_query": llm_result.get("retrieval_query", "、".join(symptoms)),
-        }
-        session_id = self.session_store.upsert_session(
-            session_id=None,
-            user_input=user_input,
-            data=result,
-        )
-        return {
-            "session_id": session_id,
-            "symptoms": result["symptoms"],
-            "missing_fields": result["missing_fields"],
-            "next_question": result["next_question"],
-            "risk_level": result["risk_level"],
-            "red_flags": result["red_flags"],
-        }
+        return final_state["response"]
 
     def continue_triage(self, session_id: str, user_input: str) -> dict:
         """继续已有问诊会话。"""
