@@ -81,6 +81,10 @@ def test_full_triage_flow(monkeypatch):
     assert continue_payload["session_id"] == start_payload["session_id"]
     assert continue_payload["need_more_info"] is True
     assert "38.5" in continue_payload["updated_summary"]
+    assert continue_payload["symptoms"] == ["发热", "咳嗽"]
+    assert continue_payload["missing_fields"] == ["是否有基础疾病"]
+    assert continue_payload["risk_level"] == "low"
+    assert continue_payload["red_flags"] == []
 
     evaluate_response = client.post(
         "/triage/evaluate",

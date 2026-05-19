@@ -54,5 +54,7 @@ def test_high_risk_session_is_not_downgraded_on_follow_up():
     evaluated = service.evaluate_triage(started["session_id"])
 
     assert continued["session_id"] == started["session_id"]
+    assert continued["risk_level"] == "high"
+    assert "胸痛" in continued["red_flags"]
     assert evaluated["risk_level"] == "high"
     assert "胸痛" in evaluated["red_flags"]

@@ -11,4 +11,4 @@ jsonpatch
 langsmith
 pgvector
 chromadb
-chromadb
+pytest

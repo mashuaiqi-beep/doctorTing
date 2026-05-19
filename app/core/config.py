@@ -15,7 +15,7 @@ class Settings:
 
     APP_NAME: str = "Medical Triage Agent"
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
-    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://:123456@localhost:6379/0")
     REDIS_SESSION_TTL_SECONDS: int = int(
         os.getenv("REDIS_SESSION_TTL_SECONDS", "86400")
     )

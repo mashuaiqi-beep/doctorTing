@@ -35,7 +35,14 @@ class TriageContinueResponse(BaseModel):
 
     session_id: str = Field(..., description="问诊会话 ID")
     updated_summary: str = Field(..., description="更新后的病情摘要")
+    symptoms: list[str] = Field(default_factory=list, description="当前已识别的症状")
+    missing_fields: list[str] = Field(
+        default_factory=list,
+        description="当前仍缺失的重要信息",
+    )
     next_question: str = Field(..., description="下一轮追问内容")
+    risk_level: str = Field(..., description="当前风险等级")
+    red_flags: list[str] = Field(default_factory=list, description="当前命中的红旗症状")
     need_more_info: bool = Field(..., description="是否还需要继续追问")
 
 

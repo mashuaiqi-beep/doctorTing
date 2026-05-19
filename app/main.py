@@ -1,7 +1,14 @@
+from pathlib import Path
+
 import uvicorn
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.triage_api import router as triage_router
+
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
 
 app = FastAPI(
     title="Medical Triage Agent",
@@ -10,13 +17,19 @@ app = FastAPI(
 )
 
 app.include_router(triage_router)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
-@app.get("/")
-def root() -> dict:
-    """根路径接口。"""
+@app.get("/", include_in_schema=False)
+def root() -> HTMLResponse:
+    """前端首页。"""
 
-    return {"message": "医疗问诊分诊 Agent 已启动。"}
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    styles_version = int((STATIC_DIR / "styles.css").stat().st_mtime)
+    script_version = int((STATIC_DIR / "app.js").stat().st_mtime)
+    html = html.replace("__STYLES_VERSION__", str(styles_version))
+    html = html.replace("__SCRIPT_VERSION__", str(script_version))
+    return HTMLResponse(content=html)
 
 
 @app.get("/health")

@@ -2,261 +2,213 @@
 
 ## 当前阶段
 
-当前项目处于：
+截至 2026-05-19，项目已经进入“Agent MVP 持续增强”阶段。
 
-```text
-Agent MVP 增强阶段：核心接口稳定，ToolService 和 ChromaDB RAG 已接入，下一步重点是配置安全、Redis session、LangGraph 编排和评估体系。
-```
+相比最初的 FastAPI + LLM Demo，当前仓库已经补齐了几块更像真实工程的能力：
 
-项目已经从“能跑的 FastAPI + LLM Demo”推进到“具备工具层和知识检索能力的医疗分诊 Agent 雏形”。
+- `/triage/start` 已经通过 LangGraph 编排
+- 会话默认落到 Redis，而不再是纯内存
+- 引入了 ChromaDB 向量检索和 `references` 返回
+- 增加了静态前端工作台，用户可以直接在首页完成一轮问诊
+
+一句话概括：现在它已经不是单纯的接口样例，而是一个带前端、带状态、带检索的医疗分诊 Agent 雏形。
 
 ## 已完成
 
-### 1. 项目骨架
+### 1. 应用骨架
 
-已经完成目录拆分：
+项目当前已经形成比较清晰的模块分层：
 
-- `app/api`
-- `app/schema`
-- `app/service`
-- `app/core`
-- `app/agent`
-- `app/model`
-- `app/tools`
-- `app/utils`
-- `app/scripts`
-- `data/knowledge`
-- `tests`
-- `docs`
+- `app/api`：HTTP 接口
+- `app/schema`：Pydantic 请求响应模型
+- `app/service`：业务服务、LLM、Redis session、RAG
+- `app/core`：配置、Prompt、风险规则
+- `app/agent`：LangGraph 编排
+- `app/tools`：工具调用入口
+- `app/static`：前端页面
+- `app/scripts`：知识索引构建
+- `tests`：自动化测试
 
-### 2. FastAPI 入口
+### 2. 核心接口
 
-已经具备：
-
-- `FastAPI` 主应用
-- 路由注册
-- `/`
-- `/health`
-- Swagger 文档 `/docs`
-
-项目可以作为 Web 服务启动。
-
-### 3. 三条核心接口
-
-当前已经实现：
+三条主接口已经具备稳定结构：
 
 - `POST /triage/start`
 - `POST /triage/continue`
 - `POST /triage/evaluate`
 
-当前主链路包括：
+其中：
 
-1. API 接收请求。
-2. Pydantic 校验请求体和响应体。
-3. `TriageService` 编排业务。
-4. `LLMService` 调用大模型。
-5. `RiskControlService` 做规则兜底。
-6. `ToolService` 调用红旗检查、知识检索和科室推荐工具。
-7. `SessionStore` 保存会话。
-8. API 返回结构化结果。
+- `start` 负责首轮抽取、风险判断、创建 session
+- `continue` 负责补充追问、更新摘要和风险
+- `evaluate` 负责知识检索、科室推荐和最终建议生成
 
-### 4. 大模型调用
+### 3. LangGraph 已接入真实链路
 
-已经完成：
+[app/agent/triage_graph.py](/E:/py/doctorTing/app/agent/triage_graph.py) 不再只是预留结构，已经接入 `TriageService.start_triage()`。
 
-- 使用 OpenAI SDK 兼容接口。
-- 支持配置 `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL`。
-- 使用 `temperature=0` 提高结构化输出稳定性。
-- 使用 JSON 解析兜底函数处理模型输出。
-- LLM 调用失败时返回稳定 fallback。
+当前图内节点顺序为：
 
-### 5. 风险判断
+1. `extract_info`
+2. `check_rule_risk`
+3. `check_llm_risk`
+4. `merge_risk`
+5. `save_session`
+6. `build_response`
 
-已经完成：
+这说明 LangGraph 已经开始承担主流程编排职责，只是覆盖范围还局限在首轮问诊。
 
-- `risk_rules.py`
-- `risk_control_service.py`
-- 明确红旗关键词匹配
-- LLM / Function Calling 方式的红旗症状语义判断
-- 规则和 LLM 风险结果合并
-- 高风险 session 后续不降级
+### 4. Redis Session 已切入主流程
 
-合并策略：
+当前 [app/service/triage_service.py](/E:/py/doctorTing/app/service/triage_service.py) 默认实例化的是 [app/service/redis_session_store.py](/E:/py/doctorTing/app/service/redis_session_store.py)。
 
-- 规则命中高风险，则最终高风险。
-- LLM 判断高风险，则最终高风险。
-- LLM 调用失败时，回退到规则结果。
-
-### 6. 会话状态
-
-当前使用内存版 `SessionStore` 保存：
+当前 session 能保存的信息包括：
 
 - `session_id`
-- 用户消息历史
-- 症状列表
-- 缺失字段
-- 下一轮问题
-- 风险等级
-- 红旗症状
-- 摘要
-- 创建时间
-- 更新时间
+- `messages`
+- `symptoms`
+- `missing_fields`
+- `next_question`
+- `risk_level`
+- `red_flags`
+- `summary`
+- `retrieval_query`
+- `state_history`
+- `created_at`
+- `updated_at`
 
-同时已经有 `RedisSessionStore` 雏形，后续可通过工厂模式切换。
+相比早期的内存版，这一步更接近真实多轮问诊场景。
 
-### 7. ToolService 工具层
+### 5. 风险控制
 
-已经完成工具层入口：
+当前已经形成“规则兜底 + LLM 语义识别”的双层风险判断：
 
-- `extract_symptoms`
-- `check_red_flags`
-- `search_knowledge`
-- `book_appointment`
+- 明确红旗词由规则层兜底
+- 口语化表达由 LLM 层补充识别
+- 合并策略偏保守
+- 高风险会话后续不会降级
 
-当前状态：
+这部分是目前项目最完整、也最像医疗安全工程意识的一块。
 
-- 红旗检查已使用 OpenAI-compatible function calling schema。
-- 知识检索已封装为工具服务。
-- 科室推荐已封装为模拟挂号工具。
-- 主流程当前仍以后端编排为主，后续可升级为 LangGraph/LLM 自主选择工具。
+### 6. RAG 检索
 
-### 8. RAG 知识检索
+当前知识检索链路已经打通：
 
-已经完成：
+- `data/knowledge/*.md` 作为知识源
+- `VectorKnowledgeService` 负责向量化与检索
+- `build_knowledge_index.py` 负责重建索引
+- `/triage/evaluate` 返回 `references`
 
-- 本地 Markdown 医疗知识库。
-- 轻量关键词检索工具。
-- ChromaDB 向量知识库服务。
-- `build_knowledge_index.py` 重建索引脚本。
-- Markdown 段落切 chunk。
-- metadata 保存 `source`、`title`、`chunk_index`。
-- `/triage/evaluate` 阶段调用知识检索。
-- 最终响应返回 `references`。
+这意味着最终建议已经不只是“裸 LLM 输出”，而是能显式带出参考来源。
 
-当前知识库示例：
+### 7. 前端工作台
 
-- `fever.md`
-- `cough.md`
-- `chest_pain.md`
+根路径 `/` 现在会返回静态页面，而不是简单文本响应。
 
-### 9. 科室推荐
+当前前端已经支持：
 
-已经完成模拟挂号工具：
+- 发起首轮问诊
+- 查看系统追问
+- 展示风险等级和红旗症状
+- 查看建议科室、摘要、建议文案和参考依据
 
-- 高风险直接推荐急诊科。
-- 低风险根据症状规则推荐呼吸内科、发热门诊、消化内科、神经内科等。
-- 无法匹配时回退到全科医学科。
+这对项目演示和面试展示帮助很大。
 
-### 10. 自动化测试
+### 8. 自动化测试
 
-当前已经覆盖：
+现有测试已经覆盖到几个关键面：
 
-- 三条核心接口完整流程。
-- 高风险输入识别。
-- 无效 `session_id` 返回 404。
-- LLM 红旗判断失败时规则仍然生效。
-- 高风险 session 后续不降级。
-- 模拟挂号工具。
-- 本地知识检索工具。
-- ChromaDB 索引构建和检索。
+- API 全流程
+- 高风险输入识别
+- 无效 session 的 404
+- 高风险 session 不降级
+- ChromaDB 索引构建
+- 向量检索返回结构
 
-## 当前存在的问题
+说明项目已经开始具备“改代码时有基本回归保护”的状态。
 
-### 1. 配置安全需要清理
+## 当前风险和不足
 
-当前 `app/core/config.py` 里还有默认配置值，后续应改成完全从环境变量读取，并增加 `.env.example`。
+### 1. 配置安全仍需清理
 
-### 2. 内存 SessionStore 不适合生产
+[app/core/config.py](/E:/py/doctorTing/app/core/config.py) 里仍有默认的 API Key 和 Redis 连接串，这在文档层面必须明确标为待处理风险。
 
-当前内存存储适合 Demo，但存在限制：
+这一点比“功能缺没缺”更优先，因为它直接影响项目可公开性和安全性。
 
-- 服务重启后会话丢失。
-- 多进程或多实例无法共享会话。
-- 无自动过期机制。
+### 2. Redis 依赖已变成主流程前置条件
 
-后续应通过配置切换到 Redis。
+当前 `TriageService` 默认直接使用 Redis session store。
 
-### 3. RAG 还缺少评估体系
+这意味着：
 
-虽然 ChromaDB 检索已经接入，但还缺少系统评估：
+- 本地未启动 Redis 时，项目可能无法正常跑完整链路
+- 文档需要明确这一依赖
+- 代码后续最好补一个 `memory|redis` 可切换的工厂层
 
-- recall@k
-- references 命中率
-- 检索结果是否真正被最终建议使用
-- 不同 query 对知识库的覆盖情况
+### 3. LangGraph 覆盖范围还不完整
 
-### 4. 知识库内容较少
+虽然 `start` 已接入 LangGraph，但：
 
-`data/knowledge` 当前适合作为 RAG 起步素材，但还不足以支撑完整医疗问诊展示。
+- `continue` 仍是普通 service 流程
+- `evaluate` 仍是普通 service 流程
+- 还没有条件分支、异常恢复、人工干预等更典型 Agent 图能力
 
-### 5. LangGraph 仍是预留
+### 4. RAG 仍缺评估体系
 
-`agent/triage_graph.py` 当前是结构示例，还没有接入主服务链路。
+现在已经“接入了检索”，但还没有系统证明“检索质量足够好”：
 
-### 6. 数据库模型仍是预留
+- 没有 recall@k
+- 没有 references 命中率评估
+- 没有问诊建议质量对比
+- 没有标准评测集
 
-`model/` 目录当前只是后续扩展入口，尚未正式接入业务链路。
+### 5. 知识库质量和规模还偏演示型
 
-## 下一步计划
+`data/knowledge/` 中已经有较多疾病文档，但整体仍更偏 demo 数据集，不适合被描述成“完整医学知识库”。
+
+### 6. 数据持久化仍不完整
+
+虽然 session 已经落 Redis，但：
+
+- 还没有长期病例归档
+- 没有数据库层的正式问诊记录模型
+- `model/` 目录仍主要是预留扩展位
+
+## 下一阶段建议
 
 ### 第一优先级
 
-- 清理默认 API key 和敏感配置。
-- 增加 `.env.example`。
-- 同步 README 与实际代码状态。
-- 稳定当前测试。
-- 增加 RAG 返回结果的更多断言。
+1. 清理硬编码敏感配置
+2. 补齐 `.env.example` 与 README 的配置说明一致性
+3. 为 Redis 不可用场景补充降级策略或可切换工厂
+4. 跑通并稳定当前测试
 
 ### 第二优先级
 
-- 增加 session store 工厂。
-- 支持 `SESSION_STORE_TYPE=memory|redis`。
-- 完善 Redis 相关测试。
-- 扩充红旗症状规则。
-- 增强 Prompt 和兜底文案。
+1. 把 `continue` 和 `evaluate` 迁入 LangGraph
+2. 增加高风险分支和急诊建议分支
+3. 统一 session 状态字段定义
 
 ### 第三优先级
 
-- 扩充 `data/knowledge`。
-- 统一 Markdown 知识文档结构。
-- 建立 RAG 评估集。
-- 统计 recall@k、references 命中率和 JSON valid rate。
+1. 建立 RAG 评估集
+2. 补充召回和引用命中指标
+3. 扩充知识库并统一 Markdown 结构
 
 ### 第四优先级
 
-- 接入 `LangGraph`。
-- 将 `start/continue/evaluate` 拆成节点。
-- 实现高风险急诊分支。
-- 接入 `LangSmith` 做调用链路观测。
+1. 引入 LangSmith 或其他链路观测
+2. 增加数据库持久化
+3. 支持历史问诊查询
 
-### 第五优先级
+## 当前结论
 
-- 增加数据库长期问诊记录。
-- 保存最终 evaluate 结果。
-- 支持根据 `session_id` 查询历史问诊。
-
-## 当前阶段总结
-
-项目已经具备一个 Agent 项目的核心雏形：
+如果把项目成熟度粗略分层：
 
 ```text
-FastAPI 接口
-  + 多轮 session
-  + LLM 结构化输出
-  + 红旗风险控制
-  + ToolService
-  + ChromaDB RAG
-  + 科室推荐
-  + pytest 测试
+阶段 1：能跑的接口 Demo
+阶段 2：有状态、有工具、有检索的 Agent 雏形   <- 当前所在位置
+阶段 3：可评估、可观测、可扩展的工程化 Agent
 ```
 
-下一阶段最值得做的是：
-
-```text
-配置安全
-  -> Redis session
-  -> RAG 评估
-  -> LangGraph 编排
-```
-
-这样项目会从“功能能跑”继续升级为“更接近真实 Agent 工程实践”的面试项目。
+doctorTing 现在已经稳稳站在阶段 2，但距离“更完整的工程化 Agent”还差配置安全、评估体系和编排完整度这三块。

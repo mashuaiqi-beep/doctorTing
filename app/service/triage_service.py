@@ -84,7 +84,11 @@ class TriageService:
         return {
             "session_id": session_id,
             "updated_summary": update_data["summary"],
+            "symptoms": update_data["symptoms"],
+            "missing_fields": update_data["missing_fields"],
             "next_question": update_data["next_question"],
+            "risk_level": update_data["risk_level"],
+            "red_flags": update_data["red_flags"],
             "need_more_info": llm_result.get("need_more_info", True),
         }
 
