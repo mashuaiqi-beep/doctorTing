@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Triage Agent</title>
+    <link rel="stylesheet" href="/static/styles.css?v=__STYLES_VERSION__">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Medical Triage Agent</h1>
+            <p class="subtitle">AI 辅助医疗分诊系统</p>
+            <div class="disclaimer">
+                <strong>医疗免责声明：</strong>本系统仅供演示参考，不构成医疗诊断。如有紧急情况请立即拨打 120。
+            </div>
+        </header>
+
+        <main id="chat-area">
+            <div class="message system">
+                <div class="bubble">
+                    你好，我是 AI 分诊助手。请描述你的症状，我会通过几个问题帮你评估情况并建议就诊科室。
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <form id="input-form">
+                <textarea
+                    id="user-input"
+                    rows="2"
+                    placeholder="请描述你的症状..."
+                    required
+                ></textarea>
+                <div class="button-row">
+                    <button type="submit" id="send-btn" class="btn btn-primary">发送</button>
+                    <button type="button" id="evaluate-btn" class="btn btn-secondary" disabled>生成分诊建议</button>
+                    <button type="button" id="reset-btn" class="btn btn-outline">重新开始</button>
+                </div>
+            </form>
+        </footer>
+    </div>
+
+    <script src="/static/app.js?v=__SCRIPT_VERSION__"></script>
+</body>
+</html>
