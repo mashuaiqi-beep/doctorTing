@@ -12,3 +12,4 @@ langsmith
 pgvector
 chromadb
 pytest
+python-dotenv

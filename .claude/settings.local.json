@@ -3,7 +3,9 @@
     "allow": [
       "WebSearch",
       "Bash(pip list *)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(New-Item *)",
+      "Bash(copy *)"
     ]
   }
 }
