@@ -51,7 +51,7 @@ class ToolService:
                 model=self.model,
                 temperature=0,
                 tools=tools,
-                tool_choice={"type": "function", "function": {"name": "extract_symptoms"}},
+                tool_choice="required",
                 messages=[
                     {"role": "system", "content": "你是一个医疗问诊助手，请从用户描述中提取症状。"},
                     {"role": "user", "content": user_input},
@@ -109,7 +109,7 @@ class ToolService:
                 model=self.model,
                 temperature=0,
                 tools=tools,
-                tool_choice={"type": "function", "function": {"name": "check_red_flags"}},
+                tool_choice="required",
                 messages=[
                     {"role": "system", "content": "你是一个医疗安全评估助手，判断症状风险等级。"},
                     {"role": "user", "content": f"用户描述：{user_input}\n已识别症状：{symptom_text}"},
