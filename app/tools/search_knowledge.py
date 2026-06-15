@@ -27,6 +27,62 @@ from pathlib import Path
 # 你可以把 Path 理解成 Java 里的 Path / File，用来处理文件路径。
 KNOWLEDGE_DIR = Path(__file__).resolve().parents[2] / "data" / "knowledge"
 
+KEYWORD_ALIASES: dict[str, list[str]] = {
+    "fever.md": ["发热", "发烧", "体温高", "高热", "体温"],
+    "cough.md": ["咳嗽", "咳", "干咳", "咳痰"],
+    "chest_pain.md": ["胸痛", "胸闷", "胸口疼", "胸口痛"],
+    "社区获得性肺炎.md": ["社区获得性肺炎", "肺炎", "CAP"],
+    "支气管哮喘.md": ["支气管哮喘", "哮喘", "气喘"],
+    "慢性阻塞性肺疾病.md": ["慢性阻塞性肺疾病", "慢阻肺", "COPD"],
+    "支气管扩张.md": ["支气管扩张", "支扩"],
+    "肺血栓栓塞症.md": ["肺血栓栓塞症", "肺栓塞", "PE", "PTE"],
+    "支原体肺炎.md": ["支原体肺炎", "MP肺炎"],
+    "自发性气胸.md": ["自发性气胸", "气胸"],
+    "原发性高血压.md": ["原发性高血压", "高血压", "血压高", "血压"],
+    "冠心病.md": ["冠心病", "冠状动脉粥样硬化性心脏病", "CHD", "心绞痛"],
+    "心力衰竭.md": ["心力衰竭", "心衰", "HF"],
+    "心房颤动.md": ["心房颤动", "房颤", "AF"],
+    "病毒性心肌炎.md": ["病毒性心肌炎", "心肌炎"],
+    "胃食管反流病.md": ["胃食管反流病", "胃食管反流", "GERD", "反流性食管炎"],
+    "消化性溃疡.md": ["消化性溃疡", "胃溃疡", "十二指肠溃疡", "PU"],
+    "急性阑尾炎.md": ["急性阑尾炎", "阑尾炎", "右下腹痛"],
+    "胆囊结石伴胆囊炎.md": ["胆囊结石伴胆囊炎", "胆囊结石", "胆囊炎", "胆结石"],
+    "急性胰腺炎.md": ["急性胰腺炎", "胰腺炎", "AP"],
+    "肠梗阻.md": ["肠梗阻", "IO"],
+    "结肠息肉.md": ["结肠息肉", "肠息肉"],
+    "肝硬化.md": ["肝硬化"],
+    "脑梗死.md": ["脑梗死", "脑梗", "脑梗塞", "缺血性脑卒中", "中风"],
+    "脑出血.md": ["脑出血", "脑溢血", "出血性脑卒中"],
+    "短暂性脑缺血发作.md": ["短暂性脑缺血发作", "TIA", "小中风"],
+    "癫痫.md": ["癫痫", "EP", "抽风", "羊癫疯"],
+    "偏头痛.md": ["偏头痛", "头痛", "头疼"],
+    "三叉神经痛.md": ["三叉神经痛", "面部疼痛"],
+    "面神经麻痹.md": ["面神经麻痹", "面瘫", "面神经炎"],
+    "2型糖尿病.md": ["2型糖尿病", "二型糖尿病", "糖尿病", "T2DM", "血糖高"],
+    "1型糖尿病.md": ["1型糖尿病", "一型糖尿病", "T1DM"],
+    "甲状腺功能亢进.md": ["甲状腺功能亢进", "甲亢"],
+    "甲状腺功能减退.md": ["甲状腺功能减退", "甲减"],
+    "泌尿系结石.md": ["泌尿系结石", "肾结石", "输尿管结石", "尿结石", "尿路结石"],
+    "前列腺增生.md": ["前列腺增生", "BPH", "前列腺肥大"],
+    "尿路感染.md": ["尿路感染", "UTI", "尿道炎", "膀胱炎"],
+    "慢性肾炎.md": ["慢性肾炎", "慢性肾小球肾炎", "肾炎"],
+    "子宫肌瘤.md": ["子宫肌瘤"],
+    "卵巢囊肿.md": ["卵巢囊肿"],
+    "宫颈炎.md": ["宫颈炎", "宫颈炎症"],
+    "腰椎间盘突出.md": ["腰椎间盘突出", "腰突", "腰痛", "腰疼"],
+    "颈椎病.md": ["颈椎病", "颈椎", "脖子疼"],
+    "骨质疏松.md": ["骨质疏松", "OP"],
+    "骨关节炎.md": ["骨关节炎", "OA", "关节炎"],
+    "荨麻疹.md": ["荨麻疹", "风团", "风疹块", "过敏"],
+    "带状疱疹.md": ["带状疱疹", "HZ", "缠腰龙"],
+    "慢性鼻窦炎.md": ["慢性鼻窦炎", "鼻窦炎"],
+    "扁桃体炎.md": ["扁桃体炎", "扁桃体", "嗓子疼", "喉咙痛"],
+    "过敏性鼻炎.md": ["过敏性鼻炎", "鼻炎", "鼻过敏", "花粉症"],
+    "急性结膜炎.md": ["急性结膜炎", "结膜炎", "红眼病", "红眼"],
+    "白内障.md": ["白内障", "视力模糊"],
+    "缺铁性贫血.md": ["缺铁性贫血", "贫血", "IDA"],
+}
+
 
 def _load_knowledge_documents() -> list[dict]:
     """读取 data/knowledge 目录下所有 Markdown 文档。"""
@@ -159,6 +215,47 @@ def _extract_references(results: list[dict]) -> list[str]:
             references.append(source)
 
     return references
+
+def search_medical_knowledge(query: str, top_k: int = 3) -> dict:
+    """根据 query 检索医疗知识，返回相关片段和来源。
+
+    这是模块对外暴露的唯一入口。
+    返回结构保持稳定，后续接向量数据库时只替换内部逻辑。
+    """
+
+    documents = _load_knowledge_documents()
+
+    scored: list[tuple[int, dict]] = []
+    for doc in documents:
+        score = _score_document(query, doc)
+        snippet = _select_snippet(query, doc["content"])
+        scored.append((score, {
+            "source": doc["source"],
+            "content": snippet,
+        }))
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+    results = [item for _, item in scored[:top_k]]
+
+    if not results or scored[0][0] == 0:
+        results = [{
+            "source": "general_triage.md",
+            "content": "请详细描述您的症状、持续时间和严重程度，以便为您提供更准确的分诊建议。",
+            "keyword": "general",
+        }]
+
+    matched = [r for s, r in scored if s > 0]
+    if not matched:
+        references = [results[0]["source"]]
+    else:
+        references = _extract_references(matched[:top_k])
+
+    return {
+        "query": query,
+        "results": results,
+        "references": references,
+    }
+
 
 def load_knowledge_by_references(references: list[str]) -> list[dict]:
     """根据 references 读取完整 Markdown 文件内容。

@@ -40,20 +40,7 @@ class RedisSessionStore:
 
         if not session:
             session_id = str(uuid4())
-            session = {
-                "session_id": session_id,
-                "messages": [],
-                "symptoms": [],
-                "missing_fields": [],
-                "next_question": "",
-                "risk_level": "low",
-                "red_flags": [],
-                "summary": "",
-                "retrieval_query": "",
-                "state_history": [],
-                "created_at": now,
-                "updated_at": now,
-            }
+            session = self._build_default_session(session_id=session_id, now=now)
 
         if user_input:
             session["messages"].append(
@@ -69,12 +56,17 @@ class RedisSessionStore:
 
         session["state_history"].append(
             {
+                "stage": session.get("stage", "started"),
                 "symptoms": session.get("symptoms", []),
+                "confirmed_facts": session.get("confirmed_facts", {}),
+                "uncertain_facts": session.get("uncertain_facts", []),
                 "missing_fields": session.get("missing_fields", []),
                 "risk_level": session.get("risk_level", "low"),
                 "red_flags": session.get("red_flags", []),
                 "summary": session.get("summary", ""),
                 "retrieval_query": session.get("retrieval_query", ""),
+                "needs_human_review": session.get("needs_human_review", False),
+                "last_tool_status": session.get("last_tool_status", {}),
                 "updated_at": now,
             }
         )
@@ -119,7 +111,28 @@ class RedisSessionStore:
         if not raw:
             return None
 
-        return json.loads(raw)
+        session = json.loads(raw)
+
+        session.setdefault("stage", "started")
+        session.setdefault("summary", "")
+        session.setdefault("symptoms", [])
+        session.setdefault("confirmed_facts", {})
+        session.setdefault("uncertain_facts", [])
+        session.setdefault("missing_fields", [])
+        session.setdefault("references", [])
+        session.setdefault(
+            "last_tool_status",
+            {
+                "tool_name": "",
+                "status": "idle",
+                "error": None,
+            },
+        )
+        session.setdefault("needs_human_review", False)
+        session.setdefault("state_history", [])
+        session.setdefault("messages", [])
+
+        return session
 
     def append_user_message(self, session_id: str, user_input: str) -> None:
         session = self.get_session(session_id)
@@ -158,3 +171,29 @@ class RedisSessionStore:
 
     def _key(self, session_id: str) -> str:
         return f"triage:session:{session_id}"
+
+    def _build_default_session(self, session_id: str, now: str) -> dict:
+        return {
+            "session_id": session_id,
+            "stage": "started",
+            "messages": [],
+            "summary": "",
+            "symptoms": [],
+            "confirmed_facts": {},
+            "uncertain_facts": [],
+            "missing_fields": [],
+            "risk_level": "low",
+            "red_flags": [],
+            "retrieval_query": "",
+            "references": [],
+            "last_tool_status": {
+                "tool_name": "",
+                "status": "idle",
+                "error": None,
+            },
+            "needs_human_review": False,
+            "state_history": [],
+            "created_at": now,
+            "updated_at": now,
+        }
+

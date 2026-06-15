@@ -5,7 +5,13 @@
       "Bash(pip list *)",
       "Bash(python *)",
       "Bash(New-Item *)",
-      "Bash(copy *)"
+      "Bash(copy *)",
+      "mcp__ide__getDiagnostics",
+      "Read(//mnt/e/py/**)",
+      "Bash(pip install *)",
+      "PowerShell(pip install *)",
+      "PowerShell(python -m pytest tests/test_tools.py -v 2>&1)",
+      "PowerShell(python -m pytest tests/test_rag.py -v 2>&1)"
     ]
   }
 }

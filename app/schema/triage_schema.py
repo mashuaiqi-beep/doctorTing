@@ -31,8 +31,6 @@ class TriageContinueRequest(BaseModel):
 
 
 class TriageContinueResponse(BaseModel):
-    """继续问诊后的响应体。"""
-
     session_id: str = Field(..., description="问诊会话 ID")
     updated_summary: str = Field(..., description="更新后的病情摘要")
     symptoms: list[str] = Field(default_factory=list, description="当前已识别的症状")
@@ -44,7 +42,9 @@ class TriageContinueResponse(BaseModel):
     risk_level: str = Field(..., description="当前风险等级")
     red_flags: list[str] = Field(default_factory=list, description="当前命中的红旗症状")
     need_more_info: bool = Field(..., description="是否还需要继续追问")
-
+    stage: str = Field(..., description="当前问诊阶段")
+    confirmed_facts: dict = Field(default_factory=dict, description="已确认事实")
+    uncertain_facts: list[str] = Field(default_factory=list, description="待确认事实")
 
 class TriageEvaluateRequest(BaseModel):
     """生成最终分诊结果时的请求体。"""
