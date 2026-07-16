@@ -1,13 +1,15 @@
 import json
 from datetime import datetime
 from uuid import uuid4
-
+from app.service.base_session_store import BaseSessionStore
+import logging
 import redis
 
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
 
-class RedisSessionStore:
+class RedisSessionStore(BaseSessionStore):
     """基于 Redis 的问诊 session 存储。"""
 
     def __init__(self):
@@ -16,6 +18,14 @@ class RedisSessionStore:
             decode_responses=True,
         )
         self.ttl_seconds = settings.REDIS_SESSION_TTL_SECONDS
+
+    def health_check(self) -> bool:
+        """ping Redis，判断连接是否正常。"""
+        try:
+            return self.client.ping()
+        except Exception:
+            logger.warning("Redis ping 失败", exc_info=True)
+            return False
 
     def upsert_session(
             self,

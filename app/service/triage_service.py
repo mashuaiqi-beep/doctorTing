@@ -1,5 +1,5 @@
 """医疗问诊分诊业务逻辑。"""
-from app.service import redis_session_store
+from app.service import redis_session_store, session_store_factory
 from app.service.llm_service import LLMService
 from app.service.risk_control_service import RiskControlService
 from app.service.tool_service import ToolService
@@ -14,7 +14,7 @@ class TriageService:
         # 这些对象后面会被注入到 LangGraph 里。
         self.llm_service = LLMService()
         self.risk_control_service = RiskControlService()
-        self.session_store = redis_session_store.RedisSessionStore()
+        self.session_store = session_store_factory.create_session_store()
         self.tool_service = ToolService()
 
         # 2. 构建 start 图
